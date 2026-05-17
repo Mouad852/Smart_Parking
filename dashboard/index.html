@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Parking — Rabat Live Map</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <style>
+        /* ── Reset & base ─────────────────────────────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #111316;
+            --surface: #1c1f24;
+            --surface2: #252930;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #e2e4e9;
+            --muted: #8a8f9a;
+            --green: #22c55e;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --blue: #3b82f6;
+            --radius: 10px;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        html,
+        body {
+            height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 14px;
+        }
+
+        /* ── Layout ───────────────────────────────────────────────────────────── */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ── Header ───────────────────────────────────────────────────────────── */
+        #header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            height: 52px;
+            flex-shrink: 0;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+        }
+
+        #header .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        #header .logo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+        }
+
+        #conn-badge {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, .3);
+            transition: all .4s;
+        }
+
+        #conn-badge.live {
+            background: rgba(34, 197, 94, .15);
+            color: var(--green);
+            border-color: rgba(34, 197, 94, .3);
+        }
+
+        /* ── Stats bar ────────────────────────────────────────────────────────── */
+        #stats-bar {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            padding: 0 20px;
+            height: 44px;
+            flex-shrink: 0;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .stat-num {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .stat-dot.green {
+            background: var(--green);
+        }
+
+        .stat-dot.yellow {
+            background: var(--yellow);
+        }
+
+        .stat-dot.red {
+            background: var(--red);
+        }
+
+        /* ── Map ──────────────────────────────────────────────────────────────── */
+        #map {
+            flex: 1;
+            position: relative;
+        }
+
+        /* Dark tile filter */
+        .leaflet-tile-pane {
+            filter: brightness(0.55) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3);
+        }
+
+        /* Leaflet popup */
+        .leaflet-popup-content-wrapper {
+            background: var(--surface2) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: var(--radius) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .6) !important;
+            color: var(--text) !important;
+        }
+
+        .leaflet-popup-tip {
+            background: var(--surface2) !important;
+        }
+
+        .leaflet-popup-close-button {
+            color: var(--muted) !important;
+        }
+
+        .popup-body {
+            padding: 2px 0;
+            min-width: 180px;
+        }
+
+        .popup-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .popup-val {
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .popup-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+        }
+
+        .badge-free {
+            background: rgba(34, 197, 94, .15);
+            color: var(--green);
+            border: 1px solid rgba(34, 197, 94, .3);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, .15);
+            color: var(--yellow);
+            border: 1px solid rgba(245, 158, 11, .3);
+        }
+
+        .badge-full {
+            background: rgba(239, 68, 68, .15);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, .3);
+        }
+
+        .badge-unknown {
+            background: rgba(255, 255, 255, .06);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        /* ── Camera strip ─────────────────────────────────────────────────────── */
+        #cam-strip {
+            display: flex;
+            gap: 10px;
+            padding: 10px 16px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            overflow-x: auto;
+            flex-shrink: 0;
+            height: 130px;
+        }
+
+        #cam-strip::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        #cam-strip::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 2px;
+        }
+
+        .cam-thumb {
+            position: relative;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+            width: 165px;
+            height: 108px;
+            background: var(--surface2);
+            transition: border-color .2s;
+        }
+
+        .cam-thumb:hover {
+            border-color: var(--blue);
+        }
+
+        .cam-thumb.selected {
+            border-color: var(--blue);
+        }
+
+        .cam-thumb img {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cam-thumb-info {
+            padding: 3px 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .cam-thumb-id {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text);
+        }
+
+        .cam-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .dot-free {
+            background: var(--green);
+            box-shadow: 0 0 4px var(--green);
+        }
+
+        .dot-warning {
+            background: var(--yellow);
+        }
+
+        .dot-full {
+            background: var(--red);
+        }
+
+        .dot-unknown {
+            background: var(--muted);
+        }
+
+        /* ── Selected camera overlay on map ───────────────────────────────────── */
+        #live-preview {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 800;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 2px solid var(--blue);
+            display: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .6);
+        }
+
+        #live-preview img {
+            width: 280px;
+            height: 185px;
+            object-fit: cover;
+            display: block;
+        }
+
+        #live-preview-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 4px 8px;
+            background: rgba(0, 0, 0, .65);
+            font-size: 11px;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+
+        <!-- Header -->
+        <header id="header">
+            <div class="logo">
+                <div class="logo-dot"></div>
+                Smart Parking — Rabat
+            </div>
+            <span id="conn-badge">● Connecting…</span>
+        </header>
+
+        <!-- Stats bar -->
+        <div id="stats-bar">
+            <div class="stat-item"><span class="stat-dot green"></span>Free zones <span class="stat-num"
+                    id="s-free">—</span></div>
+            <div class="stat-item"><span class="stat-dot yellow"></span>Warning <span class="stat-num"
+                    id="s-warn">—</span></div>
+            <div class="stat-item"><span class="stat-dot red"></span>Full <span class="stat-num" id="s-full">—</span>
+            </div>
+            <div class="stat-item" style="margin-left:auto">
+                Total slots free: <span class="stat-num" id="s-slots" style="margin-left:6px">—</span>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div id="map">
+            <!-- Live preview overlay (shown when a camera is selected) -->
+            <div id="live-preview">
+                <img id="live-preview-img" src="" alt="Live feed" />
+                <div id="live-preview-label"></div>
+            </div>
+        </div>
+
+        <!-- Camera strip -->
+        <div id="cam-strip"></div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // ── Constants ──────────────────────────────────────────────────────────────
+        const API_BASE = "http://localhost:8000";
+        const WS_URL = "ws://localhost:8000/ws";
+        const POLL_MS = 2000;        // fallback polling interval
+        const FRAME_MS = 800;         // camera thumbnail refresh interval
+
+        const CAM_IDS = ["cam1", "cam2", "cam3", "cam4", "cam5"];
+        const CAM_NAMES = {
+            cam1: "Zone A — Hassan II",
+            cam2: "Zone B — Ibn Sina",
+            cam3: "Zone C — Mohammed V",
+            cam4: "Zone D — Lumumba",
+            cam5: "Zone E — Annakhil",
+        };
+
+        // ── Map ────────────────────────────────────────────────────────────────────
+        const map = L.map("map", { zoomControl: false, attributionControl: false })
+            .setView([33.989, -6.853], 14);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "© OpenStreetMap",
+        }).addTo(map);
+
+        L.control.zoom({ position: "topright" }).addTo(map);
+
+        // ── State ──────────────────────────────────────────────────────────────────
+        let markerMap = {};         // cam_id → L.circleMarker
+        let statusData = {};        // cam_id → status object
+        let selectedCam = null;
+        let frameTimer = null;
+        let pollTimer = null;
+        let ws = null;
+
+        // ── Colour helpers ─────────────────────────────────────────────────────────
+        const STATUS_COLOR = { free: "#22c55e", warning: "#f59e0b", full: "#ef4444", unknown: "#6b7280" };
+        const STATUS_BADGE = {
+            free: '<span class="popup-badge badge-free">Free</span>',
+            warning: '<span class="popup-badge badge-warning">⚠ Nearly Full</span>',
+            full: '<span class="popup-badge badge-full">Full</span>',
+            unknown: '<span class="popup-badge badge-unknown">No data</span>',
+        };
+        const DOT_CLASS = { free: "dot-free", warning: "dot-warning", full: "dot-full", unknown: "dot-unknown" };
+
+        // ── Map markers ────────────────────────────────────────────────────────────
+        function initMarkers(zones) {
+            zones.forEach(zone => {
+                if (markerMap[zone.cam_id]) return;     // already exists
+                const marker = L.circleMarker([zone.lat, zone.lng], {
+                    radius: 18, weight: 2,
+                    color: "#fff", fillColor: STATUS_COLOR[zone.status] || STATUS_COLOR.unknown,
+                    fillOpacity: 0.85, opacity: 0.6,
+                }).addTo(map);
+
+                marker.bindPopup("", { className: "smart-popup", maxWidth: 240 });
+                marker.on("click", () => selectCamera(zone.cam_id));
+                markerMap[zone.cam_id] = marker;
+            });
+        }
+
+        function updateMarkers(zones) {
+            zones.forEach(zone => {
+                const marker = markerMap[zone.cam_id];
+                if (!marker) return;
+                const color = STATUS_COLOR[zone.status] || STATUS_COLOR.unknown;
+                marker.setStyle({ fillColor: color });
+                marker.setPopupContent(`
+      <div class="popup-body">
+        <div class="popup-title">${zone.label || zone.cam_id}</div>
+        <div class="popup-row">Status ${STATUS_BADGE[zone.status] || STATUS_BADGE.unknown}</div>
+        <div class="popup-row">Free slots <span class="popup-val">${zone.free} / ${zone.total}</span></div>
+        <div class="popup-row">Occupied <span class="popup-val">${zone.occupied}</span></div>
+      </div>
+    `);
+            });
+        }
+
+        // ── Stats bar ──────────────────────────────────────────────────────────────
+        function updateStats(zones) {
+            let free = 0, warn = 0, full = 0, freeSlots = 0;
+            zones.forEach(z => {
+                if (z.status === "free") free++;
+                if (z.status === "warning") warn++;
+                if (z.status === "full") full++;
+                freeSlots += (z.free || 0);
+            });
+            document.getElementById("s-free").textContent = free;
+            document.getElementById("s-warn").textContent = warn;
+            document.getElementById("s-full").textContent = full;
+            document.getElementById("s-slots").textContent = freeSlots;
+        }
+
+        // ── Camera strip ───────────────────────────────────────────────────────────
+        function buildStrip() {
+            const strip = document.getElementById("cam-strip");
+            strip.innerHTML = "";
+            CAM_IDS.forEach(id => {
+                const div = document.createElement("div");
+                div.className = "cam-thumb";
+                div.id = `thumb-${id}`;
+                div.innerHTML = `
+      <img id="img-${id}" src="${API_BASE}/frame/${id}?t=${Date.now()}" alt="${id}" loading="lazy" />
+      <div class="cam-thumb-info">
+        <span class="cam-thumb-id">${id.toUpperCase()}</span>
+        <span id="dot-${id}" class="cam-status-dot dot-unknown"></span>
+      </div>
+    `;
+                div.addEventListener("click", () => selectCamera(id));
+                strip.appendChild(div);
+            });
+        }
+
+        function updateStripDots(zones) {
+            zones.forEach(z => {
+                const dot = document.getElementById(`dot-${z.cam_id}`);
+                if (dot) {
+                    dot.className = "cam-status-dot " + (DOT_CLASS[z.status] || DOT_CLASS.unknown);
+                }
+            });
+        }
+
+        // ── Camera selection ───────────────────────────────────────────────────────
+        function selectCamera(camId) {
+            // Deselect old
+            if (selectedCam) {
+                document.getElementById(`thumb-${selectedCam}`)?.classList.remove("selected");
+            }
+
+            selectedCam = camId;
+            document.getElementById(`thumb-${camId}`)?.classList.add("selected");
+
+            // Pan map to marker
+            const marker = markerMap[camId];
+            if (marker) {
+                map.setView(marker.getLatLng(), 15, { animate: true });
+                marker.openPopup();
+            }
+
+            // Show live preview overlay
+            const preview = document.getElementById("live-preview");
+            const previewImg = document.getElementById("live-preview-img");
+            const previewLabel = document.getElementById("live-preview-label");
+            preview.style.display = "block";
+            previewLabel.textContent = CAM_NAMES[camId] || camId;
+
+            // Start refreshing the preview image
+            clearInterval(frameTimer);
+            const refreshPreview = () => {
+                previewImg.src = `${API_BASE}/frame/${camId}?t=${Date.now()}`;
+            };
+            refreshPreview();
+            frameTimer = setInterval(refreshPreview, FRAME_MS);
+        }
+
+        // ── Data ingestion ─────────────────────────────────────────────────────────
+        function ingestData(zones) {
+            if (!Array.isArray(zones) || zones.length === 0) return;
+
+            // Ensure markers exist for any new cameras
+            initMarkers(zones);
+            updateMarkers(zones);
+            updateStripDots(zones);
+            updateStats(zones);
+
+            // Cache for popup re-use
+            zones.forEach(z => { statusData[z.cam_id] = z; });
+        }
+
+        // ── Connection badge ───────────────────────────────────────────────────────
+        function setConnBadge(live) {
+            const el = document.getElementById("conn-badge");
+            el.textContent = live ? "● Live" : "● Polling";
+            el.className = "conn-badge" + (live ? " live" : "");
+            el.id = "conn-badge";
+        }
+
+        // ── WebSocket ──────────────────────────────────────────────────────────────
+        function connectWS() {
+            if (ws) ws.close();
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                setConnBadge(true);
+                clearInterval(pollTimer);
+                pollTimer = null;
+            };
+
+            ws.onmessage = (ev) => {
+                try { ingestData(JSON.parse(ev.data)); } catch { }
+            };
+
+            ws.onclose = () => {
+                setConnBadge(false);
+                ws = null;
+                // Fall back to polling
+                if (!pollTimer) {
+                    poll();
+                    pollTimer = setInterval(poll, POLL_MS);
+                }
+                // Attempt reconnect after 3 s
+                setTimeout(connectWS, 3000);
+            };
+
+            ws.onerror = () => ws.close();
+        }
+
+        // ── HTTP polling fallback ──────────────────────────────────────────────────
+        async function poll() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                if (!res.ok) return;
+                const data = await res.json();
+                ingestData(data);
+            } catch { }
+        }
+
+        // ── Thumbnail refresh loop ─────────────────────────────────────────────────
+        function startThumbnailRefresh() {
+            setInterval(() => {
+                CAM_IDS.forEach(id => {
+                    const img = document.getElementById(`img-${id}`);
+                    if (img && id !== selectedCam) {   // selected cam refreshes via live preview
+                        img.src = `${API_BASE}/frame/${id}?t=${Date.now()}`;
+                    }
+                });
+            }, FRAME_MS * 2);
+        }
+
+        // ── Boot ───────────────────────────────────────────────────────────────────
+        buildStrip();
+        startThumbnailRefresh();
+        connectWS();
+
+        // Initial poll so the map is populated immediately without waiting for WS
+        poll();
+    </script>
+</body>
+
+</html>

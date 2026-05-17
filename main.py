@@ -9,15 +9,15 @@ import pickle
 # Check if CUDA is available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # Load YOLO model and move it to the appropriate device
-model = YOLO(r"C:\Users\x\3D Objects\car_parking_space_detector_YOLOv8-master\car_parking_space_detector_YOLOv8-master\yolov8n.pt")
+model = YOLO("yolov8n.pt")
 model.to(device)
 
 # Load the positions from the pickle file
-with open(r'C:\Users\x\3D Objects\car_parking_space_detector_YOLOv8-master\car_parking_space_detector_YOLOv8-master\Space_ROIs', 'rb') as f:
+with open("Space_ROIs", 'rb') as f:
     posList = pickle.load(f)
 
 # Capture from camera or video
-cap = cv2.VideoCapture(r"C:\Users\x\3D Objects\car_parking_space_detector_YOLOv8-master\car_parking_space_detector_YOLOv8-master\input_video\parking_space.mp4")  # Change to the appropriate source if not using a webcam
+cap = cv2.VideoCapture("input_video/parking_space.mp4")  # Change to the appropriate source if not using a webcam
 # get vcap property
 width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)  # float `width`
 height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)  # float `height`
@@ -27,7 +27,8 @@ try:
     while True:
         ret, frame = cap.read()
         if not ret:
-            break
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            continue
 
         # Perform YOLO detection
         boxes, classes, names = YOLO_Detection(model, frame)
@@ -36,9 +37,14 @@ try:
         detection_points = []
         for box in boxes:
             x1, y1, x2, y2 = box
-            center_x = ((x1 + x2) / 2)
-            center_y = ((y1 + y2) / 2)
-            detection_points.append((int(center_x), int(center_y)))
+            center_x = int((x1 + x2) / 2)
+            center_y = int((y1 + y2) / 2)
+            
+            # Use three points along the centerline of the bounding box
+            # This is highly robust for perspective distortion and partial visibility
+            detection_points.append((center_x, center_y))                       # Center
+            detection_points.append((center_x, int(y1 + (y2 - y1) * 0.75)))     # Lower-middle
+            detection_points.append((center_x, int(y1 + (y2 - y1) * 0.90)))     # Bottom-middle
 
         # Draw polygons with updated color based on detection status and make them transparent
         frame, occupied_count = drawPolygons(frame, posList, detection_points=detection_points)
@@ -89,5 +95,8 @@ try:
     cap.release()
     cv2.destroyAllWindows()
 
-except:
-    raise NotImplementedError
+except Exception as e:
+    print(f"[ERROR] {e}")
+    cap.release()
+    cv2.destroyAllWindows()
+    raise

@@ -3,8 +3,7 @@ import pickle
 import numpy as np
 
 try:
-  with open(r"E:\Car_Parking_Space_Detector_YOLOv8-main\Car_Parking_Space_Detector_YOLOv8-main\Space_ROIs",
-              'rb') as f:
+  with open("Space_ROIs", 'rb') as f:
       posList = pickle.load(f)
 except FileNotFoundError:
     posList = []
@@ -19,7 +18,7 @@ def mouseClick(event, x, y, flags, params):
 
         if len(polygon_points) == 4:
             posList.append(polygon_points.copy())
-            with open('carParkPos', 'wb') as f:
+            with open('Space_ROIs', 'wb') as f:
                 pickle.dump(posList, f)
             polygon_points = []
 
@@ -27,12 +26,12 @@ def mouseClick(event, x, y, flags, params):
         for i, polygon in enumerate(posList):
             if cv2.pointPolygonTest(np.array(polygon, dtype=np.int32), (x, y), False) >= 0:
                 posList.pop(i)
-                with open('carParkPos', 'wb') as f:
+                with open('Space_ROIs', 'wb') as f:
                     pickle.dump(posList, f)
                 break
 
 while True:
-    img = cv2.imread(r"E:\Car_Parking_Space_Detector_YOLOv8-main\Car_Parking_Space_Detector_YOLOv8-main\ROI_Reference.png")
+    img = cv2.imread("ROI_Reference.png")
     for polygon in posList:
         pts = np.array(polygon, np.int32)
         pts = pts.reshape((-1, 1, 2))
