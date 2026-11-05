@@ -1,6 +1,13 @@
-# 🚗 Smart Parking Space Detector & Real-Time Live Map Dashboard 🅿️
+# Smart Parking — occupancy detection and a live map dashboard
 
-A modern, local edge-computing computer vision platform that detects parking space occupancy using **YOLOv8 and OpenCV**, and streams live telemetry over **WebSockets** to an interactive, dark-themed **Leaflet.js Web Map Dashboard**.
+This local computer-vision prototype detects parking-space occupancy with
+**YOLOv8** and **OpenCV**, then streams telemetry over **WebSockets** to a
+Leaflet-based map dashboard. It is intended for local demonstration and
+experimentation, not presented as a deployed parking-management service.
+
+<p align="center">
+  <img src="ROI_Reference.png" alt="Parking-space ROI reference image" width="72%">
+</p>
 
 ---
 
@@ -61,10 +68,10 @@ The system consists of three decoupled processing layers:
 
 ## 🚀 Installation & Setup Instructions
 
-### 1️⃣ Clone the Repository & Setup
+### 1. Clone this repository and install dependencies
 ```bash
-git clone https://github.com/prajesdas/Smart-Parking-Space-Detector-using-YOLO-and-OpenCV.git
-cd Smart-Parking-Space-Detector-using-YOLO-and-OpenCV
+git clone https://github.com/Mouad852/Smart_Parking.git
+cd Smart_Parking
 ```
 
 ### 2️⃣ Install Required Libraries
@@ -79,19 +86,19 @@ pip install -r requirements_api.txt
 
 Open **two separate terminals** on your computer:
 
-### 📺 Step 1: Start the Camera Streamer (Terminal 1)
+### Step 1: Start the camera streamer (Terminal 1)
 ```bash
 python camera_simulator.py
 ```
 *(Simulates 5 IP cameras from local videos and listens on `ws://127.0.0.1:8765`)*
 
-### 🧠 Step 2: Start the FastAPI Backend Engine (Terminal 2)
+### Step 2: Start the FastAPI backend (Terminal 2)
 ```bash
 python parking_api.py
 ```
 *(Starts the bridge on `http://127.0.0.1:8000`, loads YOLOv8, consumes simulated frames, processes boundaries, and hosts endpoints)*
 
-### 🌐 Step 3: Open the Web Dashboard
+### Step 3: Open the web dashboard
 *   Simply open the `/dashboard` folder and **double-click `index.html`** in Chrome, Firefox, or Edge.
 *   *Note: Ensure you have active internet connection when opening the HTML page so Leaflet can successfully pull map scripts from the CDN.*
 
@@ -116,8 +123,19 @@ python roi_picker.py
 
 ---
 
-## 🤝 Contributing
-Contributions are highly welcomed! Feel free to open issues or submit Pull Requests for visual dashboard enhancements or custom model integrations.
+## Attribution and scope
 
-## 📜 License
-This project is licensed under the **MIT License**. Free for university, research, and commercial presentation use.
+The earlier setup instructions referenced
+[`prajesdas/Smart-Parking-Space-Detector-using-YOLO-and-OpenCV`](https://github.com/prajesdas/Smart-Parking-Space-Detector-using-YOLO-and-OpenCV).
+That link is retained as historical attribution; use the clone command above for
+this repository. The project has a single authored initialization commit, and no
+upstream license file is included here. Do not infer an MIT license or reuse
+rights beyond the licenses of the dependencies and assets actually present.
+
+## Known limitations
+
+- Inputs are local simulated camera streams and local video files.
+- Detection quality depends on the YOLO model, camera angle, selected ROI
+  polygons, and the supplied video material.
+- The Leaflet dashboard fetches map assets from a CDN, so it needs network
+  access even though the application services run locally.
